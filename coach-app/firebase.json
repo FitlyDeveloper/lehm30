@@ -2,9 +2,6 @@
   "functions": {
     "source": ".",
     "runtime": "nodejs22",
-    "codebase": "coach-app",
-    "environment_variables": {
-      "DEEPSEEK_API_KEY": "sk-593c0eafc0734e4a9401ebdaa8a0093d"
-    }
+    "codebase": "coach-app"
   }
 } 

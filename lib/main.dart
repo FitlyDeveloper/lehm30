@@ -8,10 +8,11 @@ import 'core/utils/device_size_adapter.dart';
 import 'dart:ui' as ui;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'dart:html' as html;
 import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:fitness_app/Features/codia/codia_page.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 // Custom binding to disable overflow errors
 class NoOverflowErrorsFlutterBinding extends WidgetsFlutterBinding {
@@ -66,6 +67,11 @@ class HideOverflowErrorsApp extends StatelessWidget {
 void main() async {
   // Initialize the Flutter binding first
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Configure web for hash-less URLs
+  if (kIsWeb) {
+    setUrlStrategy(PathUrlStrategy());
+  }
 
   // Disable ALL debug rendering features
   debugPaintSizeEnabled = false;
