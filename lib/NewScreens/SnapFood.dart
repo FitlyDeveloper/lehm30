@@ -230,8 +230,11 @@ class _SnapFoodState extends State<SnapFood> {
   Future<void> _pickImage() async {
     try {
       print("Opening image picker gallery...");
-      final XFile? pickedFile =
-          await _picker.pickImage(source: ImageSource.gallery);
+      final XFile? pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        // Disable video selection by using pickImage not pickVideo
+        // Note: ImagePicker.pickImage already only selects images
+      );
 
       if (pickedFile != null) {
         print("Image file selected: ${pickedFile.path}");
@@ -242,6 +245,13 @@ class _SnapFoodState extends State<SnapFood> {
             print("Web platform: reading image bytes first");
             final bytes = await pickedFile.readAsBytes();
             print("Web image bytes read successfully: ${bytes.length} bytes");
+
+            // Check file size - 4MB maximum
+            if (bytes.length > 4 * 1024 * 1024) {
+              _showCustomDialog("File Too Large",
+                  "Image must be less than 4MB. Please select a smaller image.");
+              return;
+            }
 
             // Update state with both path and bytes
             setState(() {
@@ -256,6 +266,15 @@ class _SnapFoodState extends State<SnapFood> {
             _analyzeImage(pickedFile);
           } else {
             // For mobile platforms
+            final bytes = await pickedFile.readAsBytes();
+
+            // Check file size - 4MB maximum
+            if (bytes.length > 4 * 1024 * 1024) {
+              _showCustomDialog("File Too Large",
+                  "Image must be less than 4MB. Please select a smaller image.");
+              return;
+            }
+
             setState(() {
               _imageFile = File(pickedFile.path);
               _webImagePath = null;
@@ -308,6 +327,8 @@ class _SnapFoodState extends State<SnapFood> {
       final XFile? pickedFile = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.rear,
+        // Disable video by using pickImage not pickVideo
+        // Additional parameters could be set here for image quality
       );
 
       if (pickedFile != null) {
@@ -321,6 +342,16 @@ class _SnapFoodState extends State<SnapFood> {
             print(
                 "Web camera image bytes read successfully: ${bytes.length} bytes");
 
+            // Check file size - 4MB maximum
+            if (bytes.length > 4 * 1024 * 1024) {
+              _showCustomDialog("File Too Large",
+                  "Image must be less than 4MB. Please take a smaller image or adjust your camera settings.");
+              setState(() {
+                _isAnalyzing = false;
+              });
+              return;
+            }
+
             // Update state with both path and bytes
             setState(() {
               _webImagePath = pickedFile.path;
@@ -333,6 +364,18 @@ class _SnapFoodState extends State<SnapFood> {
             _analyzeImage(pickedFile);
           } else {
             // For mobile platforms
+            final bytes = await pickedFile.readAsBytes();
+
+            // Check file size - 4MB maximum
+            if (bytes.length > 4 * 1024 * 1024) {
+              _showCustomDialog("File Too Large",
+                  "Image must be less than 4MB. Please take a smaller image or adjust your camera settings.");
+              setState(() {
+                _isAnalyzing = false;
+              });
+              return;
+            }
+
             setState(() {
               _imageFile = File(pickedFile.path);
               _webImagePath = null;

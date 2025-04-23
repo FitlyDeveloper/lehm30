@@ -56,6 +56,18 @@ app.post('/api/analyze-food', async (req, res) => {
       });
     }
 
+    // Check image size (4MB limit)
+    // For data URLs, the content is approximately 4/3 of the decoded size
+    // So a 4MB image will be around 5.33MB in base64
+    const MAX_SIZE = 4 * 1024 * 1024 * 1.4; // 4MB with encoding overhead
+    if (image.length > MAX_SIZE) {
+      console.error('Image too large:', Math.round(image.length/1024/1024), 'MB');
+      return res.status(413).json({
+        success: false,
+        error: 'Image too large. Maximum size is 4MB.'
+      });
+    }
+
     // Debug logging
     console.log('Received image data, length:', image.length);
 
