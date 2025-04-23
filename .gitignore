@@ -72,3 +72,20 @@ app.*.map.json
 **/ios/Flutter/flutter_assets/
 **/ios/ServiceDefinitions.json
 **/ios/Runner/GeneratedPluginRegistrant.*
+
+# Environment and API keys
+.env
+.env.local
+.env.backup
+.env.*
+*.env
+!.env.example
+.runtimeconfig.json
+
+# Firebase related
+firebase-debug.log
+functions/node_modules/
+functions/.runtimeconfig.json
+
+# Test files
+test-*.js
