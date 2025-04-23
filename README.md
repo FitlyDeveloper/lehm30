@@ -1,90 +1,73 @@
-# Fitly - Fitness & Nutrition Tracking App
+# Fitness App with Food Analysis
 
-Fitly is a comprehensive fitness and nutrition tracking application built with Flutter. It helps users track their calorie intake, monitor macronutrients, and achieve their fitness goals.
-
-## Features
-
-- **User Onboarding**: Personalized onboarding flow collecting user information (gender, weight, height, etc.)
-- **Calorie Tracking**: Track daily calorie intake and deficit
-- **Macronutrient Monitoring**: Monitor protein, fat, and carbohydrate consumption
-- **Meal Logging**: Log meals with detailed nutritional information
-- **Activity Feed**: View recent food entries and activities
-- **Snap Meal**: Quickly log meals using your camera
-- **Coach Access**: Connect with fitness coaches for personalized guidance
-
-## Screenshots
-
-![App Screenshot](screenshots/home_screen.png)
+A Flutter fitness application with advanced food analysis capabilities using OpenAI Vision API.
 
 ## Project Structure
 
-The app follows a feature-based architecture:
+- `/lib` - Flutter application code
+- `/api-server` - Node.js API server for secure OpenAI API calls
 
-- **Features/**
-  - **auth/**: Authentication-related screens and services
-  - **codia/**: Main app screens including home screen
-  - **home/**: Home screen components
-  - **onboarding/**: Onboarding flow screens and components
-- **core/**: Core utilities and widgets
-- **services/**: Backend services including authentication
-- **utils/**: Utility functions and helpers
+## Local Development
 
-## Getting Started
+### Flutter App
 
-### Prerequisites
-
-- Flutter SDK (2.10.0 or higher)
-- Dart SDK (2.16.0 or higher)
-- Android Studio / VS Code with Flutter extensions
-
-### Installation
-
-1. Clone the repository:
-   ```
-   git clone https://github.com/yourusername/fitly.git
-   ```
-
-2. Navigate to the project directory:
-   ```
-   cd fitly
-   ```
-
-3. Install dependencies:
-   ```
+1. Install dependencies:
+   ```bash
    flutter pub get
    ```
 
-4. Run the app:
+2. Run the app:
+   ```bash
+   flutter run -d chrome --web-renderer canvaskit
    ```
-   flutter run
+
+### API Server
+
+1. Navigate to the API server directory:
+   ```bash
+   cd api-server
    ```
 
-## Development Notes
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-### Navigation Flow
+3. Create a `.env` file from `.env.example` and add your OpenAI API key:
+   ```bash
+   cp .env.example .env
+   ```
 
-The app implements a multi-screen onboarding flow:
-1. Sign In/Sign Up
-2. Email Verification
-3. Gender Selection
-4. Weight & Height Input
-5. Goal Setting
-6. Main App (Home Screen)
+4. Start the server:
+   ```bash
+   npm run dev
+   ```
 
-### UI Components
+## Deploying to Render.com
 
-- Uses Material Design with custom styling
-- Implements responsive layouts for different screen sizes
-- Custom navigation bar with increased height (90px) for better usability
-- Fixed positioning of navigation elements for consistent UX
+1. Fork/clone this repository to your GitHub account
+
+2. Sign up for [Render.com](https://render.com) if you haven't already
+
+3. Create a new Web Service:
+   - Connect your GitHub repository
+   - Use the following settings:
+     - Name: `food-analyzer-api`
+     - Environment: `Node`
+     - Build Command: `cd api-server && npm install`
+     - Start Command: `cd api-server && npm start`
+     - Environment Variables: Add your `OPENAI_API_KEY` and other variables from `.env.example`
+
+4. The server will be deployed at a URL like: `https://food-analyzer-api.onrender.com`
+
+5. Update the `baseUrl` in `lib/services/food_analyzer_api.dart` with your Render.com deployment URL
+
+## Features
+
+- Food image analysis using OpenAI Vision API
+- Secure API server to protect API keys
+- Responsive UI for mobile and web
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Flutter team for the amazing framework
-- Material Design for UI inspiration
-- All contributors who have helped shape this project
-"# Lehm40" 
+MIT

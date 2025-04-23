@@ -419,3 +419,191 @@ exports.streamAIResponse = functions.https.onCall(async (data, context) => {
     );
   }
 });
+
+/**
+ * Function to analyze food images using OpenAI Vision API
+ * This function takes a base64-encoded image and returns nutritional analysis
+ */
+exports.analyzeFoodImage = functions.https.onCall(async (data, context) => {
+  try {
+    console.log("analyzeFoodImage function triggered");
+    
+    // Get the image data
+    const { image } = data || {};
+    
+    if (!image) {
+      console.error("No image provided for analysis");
+      
+      // If no image, return example data for testing
+      if (data && data.demo === true) {
+        console.log("Returning example food analysis data for demo");
+        return {
+          success: true,
+          analysis: {
+            calories: 650,
+            macros: {
+              protein: 32,
+              carbs: 58,
+              fat: 28
+            },
+            ingredients: [
+              "Grilled chicken breast",
+              "Brown rice",
+              "Steamed broccoli",
+              "Olive oil",
+              "Cherry tomatoes"
+            ]
+          }
+        };
+      }
+      
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "No image provided for analysis"
+      );
+    }
+    
+    // Get the OpenAI API key
+    const apiKey = process.env.OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      console.error("OpenAI API key not configured");
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "API key not configured"
+      );
+    }
+    
+    // Log image size for debugging
+    console.log(`Processing image data of size: ${image.length} characters`);
+    
+    // Create the vision prompt with the image
+    const messages = [
+      {
+        role: "system",
+        content: "You are a nutrition expert analyzing food images. Analyze what you see in the image accurately. Return ONLY a JSON object with the following format, with no additional text or explanations: {\"calories\": number, \"macros\": {\"protein\": number, \"carbs\": number, \"fat\": number}, \"ingredients\": [list of strings], \"description\": \"brief description\"}. All values should be a best estimate based on what you actually see in the image. If you cannot identify the food clearly, provide your best estimate and indicate uncertainty in the description."
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "What's in this meal? Please analyze the nutritional content and ingredients, providing calories and macronutrient breakdown based exactly on what you see in this specific image."
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:image/jpeg;base64,${image}`
+            }
+          }
+        ]
+      }
+    ];
+    
+    console.log("Making request to OpenAI Vision API");
+    
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o",
+        messages: messages,
+        max_tokens: 1000,
+        temperature: 0.2 // Lower temperature for more consistent results
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        timeout: 30000 // 30 second timeout
+      }
+    );
+    
+    if (!response.data || !response.data.choices || !response.data.choices[0]) {
+      console.error("Invalid response from OpenAI API");
+      throw new functions.https.HttpsError(
+        "internal",
+        "Invalid response from OpenAI API"
+      );
+    }
+    
+    const analysisText = response.data.choices[0].message.content;
+    console.log("Analysis received from OpenAI:", analysisText.substring(0, 200) + "...");
+    
+    // Try to extract JSON from the response
+    let structuredAnalysis = null;
+    try {
+      // First try to directly parse the response as JSON
+      try {
+        structuredAnalysis = JSON.parse(analysisText);
+        console.log("Successfully parsed response directly as JSON");
+      } catch (directParseError) {
+        // If direct parsing fails, try to extract JSON from markdown or text
+        console.log("Direct JSON parse failed, trying to extract JSON from text");
+        const jsonMatch = analysisText.match(/```json\n([\s\S]*?)\n```/) || 
+                          analysisText.match(/{[\s\S]*?}/);
+                        
+        if (jsonMatch) {
+          const jsonContent = jsonMatch[0].replace(/```json\n|```/g, '').trim();
+          structuredAnalysis = JSON.parse(jsonContent);
+          console.log("Successfully extracted and parsed JSON from text");
+        } else {
+          throw new Error("No JSON structure found in response");
+        }
+      }
+      
+      // Validate the extracted JSON has the required fields
+      if (!structuredAnalysis.calories || !structuredAnalysis.macros || !structuredAnalysis.ingredients) {
+        console.warn("Structured analysis is missing required fields");
+        
+        // Ensure we have all required fields with defaults if necessary
+        structuredAnalysis = {
+          calories: structuredAnalysis.calories || 0,
+          macros: {
+            protein: (structuredAnalysis.macros?.protein) || 0,
+            carbs: (structuredAnalysis.macros?.carbs) || 0,
+            fat: (structuredAnalysis.macros?.fat) || 0
+          },
+          ingredients: structuredAnalysis.ingredients || ["Unable to identify ingredients"],
+          description: structuredAnalysis.description || "Food item analyzed from image."
+        };
+      }
+      
+    } catch (parseError) {
+      console.warn("Unable to parse structured data from response:", parseError);
+      
+      // Create a fallback structure with the raw text
+      structuredAnalysis = {
+        calories: 0,
+        macros: {
+          protein: 0,
+          carbs: 0,
+          fat: 0
+        },
+        ingredients: ["Unable to parse ingredients"],
+        description: "Analysis parsing failed. Raw response preserved.",
+        rawText: analysisText
+      };
+    }
+    
+    console.log("Final analysis structure:", JSON.stringify(structuredAnalysis, null, 2));
+    
+    return {
+      success: true,
+      analysis: structuredAnalysis,
+      raw: analysisText
+    };
+    
+  } catch (error) {
+    console.error("Error in analyzeFoodImage:", error);
+    
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    
+    throw new functions.https.HttpsError(
+      "internal",
+      `Failed to analyze food image: ${error.message}`
+    );
+  }
+});
