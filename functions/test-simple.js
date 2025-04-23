@@ -1,7 +1,7 @@
 const fetch = require('node-fetch');
 
-// API Key directly for test (remove before committing)
-const apiKey = "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";
+// Replace API key with placeholder
+const API_KEY = 'sk-your-api-key-here'; // Replace with your actual OpenAI API key
 
 // OpenAI API endpoint
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
@@ -25,7 +25,7 @@ async function testSimple() {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`
+        "Authorization": `Bearer ${API_KEY}`
       },
       body: JSON.stringify({
         model: "gpt-4-turbo",

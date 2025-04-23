@@ -27,7 +27,7 @@ if (!process.env.OPENAI_API_KEY) {
   console.log('Setting Firebase config values...');
   try {
     // Try to set config, but don't worry if it fails
-    execSync('firebase functions:config:set openai.api_key="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"', {
+    execSync('firebase functions:config:set openai.api_key="sk-your-api-key-here"', {
       stdio: 'inherit'
     });
   } catch (error) {
