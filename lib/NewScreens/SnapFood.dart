@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart';
@@ -11,7 +11,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:camera/camera.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart'
+    as flutter_compress;
 // Remove permission_handler temporarily
 // import 'package:permission_handler/permission_handler.dart';
 
@@ -22,8 +23,7 @@ import 'dart:io' if (dart.library.html) 'package:fitness_app/web_io_stub.dart';
 import 'web_impl.dart' if (dart.library.io) 'web_impl_stub.dart';
 
 // Additional imports for mobile platforms
-import 'package:flutter_image_compress/flutter_image_compress.dart'
-    if (dart.library.html) 'web_image_compress_stub.dart';
+import 'web_image_compress_stub.dart' as img_compress;
 
 // Conditionally import the image compress library
 // We need to use a different approach to avoid conflicts
@@ -177,7 +177,8 @@ class _SnapFoodState extends State<SnapFood> {
           } else {
             // For mobile, we'll use a simpler approach to avoid path_provider
             // Use FlutterImageCompress.compressWithList for direct byte processing
-            final compressedBytes = await FlutterImageCompress.compressWithList(
+            final compressedBytes =
+                await flutter_compress.FlutterImageCompress.compressWithList(
               imageBytes,
               minWidth: 800,
               minHeight: 800,
