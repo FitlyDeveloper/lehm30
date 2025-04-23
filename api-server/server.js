@@ -9,6 +9,12 @@ const fetch = require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Debug startup
+console.log('Starting server...');
+console.log('Node environment:', process.env.NODE_ENV);
+console.log('Current directory:', process.cwd());
+console.log('OpenAI API Key present:', process.env.OPENAI_API_KEY ? 'Yes' : 'No');
+
 // Configure rate limiting
 const limiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -49,16 +55,19 @@ app.use(express.json({ limit: '10mb' }));
 // Middleware to check for OpenAI API key
 const checkApiKey = (req, res, next) => {
   if (!process.env.OPENAI_API_KEY) {
+    console.error('OpenAI API key not configured');
     return res.status(500).json({
       success: false,
       error: 'Server configuration error: OpenAI API key not set'
     });
   }
+  console.log('OpenAI API key verified');
   next();
 };
 
 // Define routes
 app.get('/', (req, res) => {
+  console.log('Health check endpoint called');
   res.json({
     message: 'Food Analyzer API Server',
     status: 'operational'
@@ -68,21 +77,23 @@ app.get('/', (req, res) => {
 // OpenAI proxy endpoint for food analysis
 app.post('/api/analyze-food', limiter, checkApiKey, async (req, res) => {
   try {
+    console.log('Analyze food endpoint called');
     const { image } = req.body;
 
     if (!image) {
+      console.error('No image provided in request');
       return res.status(400).json({
         success: false,
         error: 'Image data is required'
       });
     }
 
-    // Debug logging (if enabled)
-    if (process.env.DEBUG_MODE === 'true') {
-      console.log('Received image data, length:', image.length);
-    }
+    // Debug logging
+    console.log('Received image data, length:', image.length);
+    console.log('Image data starts with:', image.substring(0, 50));
 
     // Call OpenAI API
+    console.log('Calling OpenAI API...');
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -123,12 +134,14 @@ app.post('/api/analyze-food', limiter, checkApiKey, async (req, res) => {
       });
     }
 
+    console.log('OpenAI API response received');
     const data = await response.json();
     
     if (!data.choices || 
         !data.choices[0] || 
         !data.choices[0].message || 
         !data.choices[0].message.content) {
+      console.error('Invalid response format from OpenAI:', JSON.stringify(data));
       return res.status(500).json({
         success: false,
         error: 'Invalid response from OpenAI'
@@ -136,16 +149,19 @@ app.post('/api/analyze-food', limiter, checkApiKey, async (req, res) => {
     }
 
     const content = data.choices[0].message.content;
+    console.log('OpenAI API response content:', content.substring(0, 100) + '...');
     
     // Process and parse the response
     try {
       // First try direct parsing
       const parsedData = JSON.parse(content);
+      console.log('Successfully parsed JSON response');
       return res.json({
         success: true,
         data: parsedData
       });
     } catch (error) {
+      console.log('Direct JSON parsing failed, attempting to extract JSON from text');
       // Try to extract JSON from the text
       const jsonMatch = content.match(/```json\n([\s\S]*?)\n```/) || 
                       content.match(/\{[\s\S]*\}/);
@@ -154,11 +170,13 @@ app.post('/api/analyze-food', limiter, checkApiKey, async (req, res) => {
         const jsonContent = jsonMatch[0].replace(/```json\n|```/g, '').trim();
         try {
           const parsedData = JSON.parse(jsonContent);
+          console.log('Successfully extracted and parsed JSON from text');
           return res.json({
             success: true,
             data: parsedData
           });
         } catch (err) {
+          console.error('JSON extraction failed:', err);
           // Return the raw text if JSON parsing fails
           return res.json({
             success: true,
@@ -166,6 +184,7 @@ app.post('/api/analyze-food', limiter, checkApiKey, async (req, res) => {
           });
         }
       } else {
+        console.warn('No JSON pattern found in response');
         // Return the raw text if no JSON found
         return res.json({
           success: true,
