@@ -27,7 +27,8 @@ if (!process.env.OPENAI_API_KEY) {
   console.log('Setting Firebase config values...');
   try {
     // Try to set config, but don't worry if it fails
-    execSync('firebase functions:config:set openai.api_key="sk-your-api-key-here"', {
+    const setApiKeyExampleCommand = 'firebase functions:config:set openai.api_key="YOUR_API_KEY_HERE"';
+    execSync(setApiKeyExampleCommand, {
       stdio: 'inherit'
     });
   } catch (error) {
