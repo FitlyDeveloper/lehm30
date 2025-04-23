@@ -16,6 +16,7 @@ dependencies:
   confetti: ^0.7.0
   firebase_core: ^3.13.0
   firebase_auth: ^5.5.1
+  cloud_functions: ^5.3.5
   grouped_list: ^5.1.2
   camera: ^0.11.1
   image_picker: ^1.1.2
@@ -27,7 +28,7 @@ dependencies:
   connectivity_plus: ^5.0.2
   connectivity_plus_web: ^1.2.5
   path_provider: ^2.1.2
-  # IMPORTANT: cloud_functions dependency was replaced with direct HTTP API calls to Render.com
+  # Both Firebase Functions and direct HTTP API calls are used
 
 dev_dependencies:
   flutter_test:
