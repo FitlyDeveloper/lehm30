@@ -27,7 +27,7 @@ dependencies:
   connectivity_plus: ^5.0.2
   connectivity_plus_web: ^1.2.5
   path_provider: ^2.1.2
-  # Firebase dependencies are removed for web compatibility
+  # IMPORTANT: cloud_functions dependency was replaced with direct HTTP API calls to Render.com
 
 dev_dependencies:
   flutter_test:
