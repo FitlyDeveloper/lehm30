@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class FoodAnalyzerApi {
   // Base URL of our Render.com API server
-  static const String baseUrl = 'https://food-analyzer-api.onrender.com';
+  static const String baseUrl = 'https://snap-food.onrender.com';
 
   // Endpoint for food analysis
   static const String analyzeEndpoint = '/api/analyze-food';
