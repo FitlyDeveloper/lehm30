@@ -1,63 +1,68 @@
 # Food Analyzer API Server
 
-A secure API server for food image analysis using OpenAI's Vision model.
+A secure API server for analyzing food images using OpenAI's Vision API.
 
 ## Features
 
-- Secure server-side OpenAI API key storage
-- CORS protection with configurable allowed origins
+- Secure OpenAI API key handling
 - Rate limiting to prevent abuse
-- Error handling and logging
+- CORS protection
+- JSON response parsing and formatting
+- Error handling
 
-## Setup and Deployment
+## Setup
+
+### Prerequisites
+
+- Node.js v18 or higher
+- An OpenAI API key with access to GPT-4 Vision (gpt-4o model)
 
 ### Local Development
 
 1. Clone this repository
-2. Install dependencies:
+2. Navigate to the api-server directory
+3. Install dependencies:
    ```
    npm install
    ```
-3. Copy the example environment file and fill in your OpenAI API key:
+4. Create a `.env` file from the example:
    ```
    cp .env.example .env
    ```
-4. Edit the `.env` file and add your OpenAI API key
-5. Start the development server:
+5. Add your OpenAI API key to the `.env` file
+6. Start the development server:
    ```
    npm run dev
    ```
 
-### Deployment Options
+The server will start on port 3000 by default.
 
-#### Deploying to Render.com
+### Endpoints
 
-1. Create a new Web Service in your Render dashboard
-2. Link to your GitHub repository
-3. Set the build command to `npm install`
-4. Set the start command to `npm start`
-5. Add environment variables (especially `OPENAI_API_KEY`)
-6. Deploy
+#### `GET /`
 
-#### Deploying to Heroku
+Health check endpoint that returns the server status.
 
-1. Create a new Heroku app
-2. Connect to your GitHub repository
-3. Set environment variables in the Heroku dashboard
-4. Deploy the app
+**Response:**
+```json
+{
+  "message": "Food Analyzer API Server",
+  "status": "operational"
+}
+```
 
-## API Usage
+#### `POST /api/analyze-food`
 
-### Analyze Food Image
-
-**Endpoint:** `POST /api/analyze-food`
+Analyzes a food image and returns nutritional information.
 
 **Request Body:**
 ```json
 {
-  "image": "data:image/jpeg;base64,/9j/4AAQSkZ..."
+  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA..."
 }
 ```
+
+The image can be a base64-encoded data URI or a URL to an image.
 
 **Response:**
 ```json
@@ -66,39 +71,36 @@ A secure API server for food image analysis using OpenAI's Vision model.
   "data": {
     "meal": [
       {
-        "dish": "Grilled Salmon with Vegetables",
-        "calories": 450,
+        "dish": "Chicken Salad",
+        "calories": 350,
         "macronutrients": {
-          "protein": 35,
-          "carbohydrates": 20,
-          "fat": 25
+          "protein": 25,
+          "carbohydrates": 15,
+          "fat": 20
         },
-        "ingredients": [
-          "salmon",
-          "asparagus",
-          "bell peppers",
-          "olive oil",
-          "lemon",
-          "herbs"
-        ]
+        "ingredients": ["chicken", "lettuce", "tomato", "avocado"]
       }
     ]
   }
 }
 ```
 
-## Security Considerations
+## Deployment
 
-- The OpenAI API key is stored securely on the server and never exposed to clients
-- CORS protection ensures only authorized origins can access the API
-- Rate limiting prevents abuse of the API
+This server is designed to be deployed to Render.com:
 
-## Configuration
+1. Push this repository to GitHub
+2. Create a new Web Service on Render.com
+3. Connect your GitHub repository
+4. Configure the build settings:
+   - Build Command: `npm install`
+   - Start Command: `npm start`
+5. Add the necessary environment variables:
+   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `ALLOWED_ORIGINS`: Comma-separated list of allowed origins
+   - `RATE_LIMIT`: Request limits per minute (default: 30)
+   - `DEBUG_MODE`: Enable debug logging (true/false)
 
-All configuration is done through environment variables:
+## License
 
-- `OPENAI_API_KEY`: Your OpenAI API key (required)
-- `PORT`: Server port (default: 3000)
-- `ALLOWED_ORIGINS`: Comma-separated list of allowed origins
-- `RATE_LIMIT`: Maximum requests per minute (default: 30)
-- `DEBUG_MODE`: Set to 'true' to enable debug logging 
+MIT 

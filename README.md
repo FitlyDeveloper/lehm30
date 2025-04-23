@@ -1,72 +1,93 @@
-# Fitness App with Food Analysis
+# Fitness App with Food Analysis API
 
-A Flutter fitness application with advanced food analysis capabilities using OpenAI Vision API.
+A secure implementation of a food analysis API for use with the Fitness App. This repository contains the API server code that handles secure processing of food images using OpenAI's Vision API.
 
-## Project Structure
+## Overview
 
-- `/lib` - Flutter application code
-- `/api-server` - Node.js API server for secure OpenAI API calls
+This is a clean implementation for deploying to Render.com, which avoids the limitations of Firebase Functions while maintaining security of API keys.
 
-## Local Development
+## Getting Started
 
-### Flutter App
+### Prerequisites
 
-1. Install dependencies:
-   ```bash
-   flutter pub get
+- Node.js v18 or higher
+- An OpenAI API key with access to GPT-4 Vision (gpt-4o model)
+
+### Local Development
+
+1. Clone this repository
+2. Navigate to the api-server directory
+3. Install dependencies:
    ```
-
-2. Run the app:
-   ```bash
-   flutter run -d chrome --web-renderer canvaskit
-   ```
-
-### API Server
-
-1. Navigate to the API server directory:
-   ```bash
-   cd api-server
-   ```
-
-2. Install dependencies:
-   ```bash
    npm install
    ```
-
-3. Create a `.env` file from `.env.example` and add your OpenAI API key:
-   ```bash
+4. Create a `.env` file from the example:
+   ```
    cp .env.example .env
    ```
-
-4. Start the server:
-   ```bash
+5. Add your OpenAI API key to the `.env` file
+6. Start the development server:
+   ```
    npm run dev
    ```
 
-## Deploying to Render.com
+The server will start on port 3000 by default.
 
-1. Fork/clone this repository to your GitHub account
+## Deployment
 
-2. Sign up for [Render.com](https://render.com) if you haven't already
+This server is designed to be deployed to Render.com:
 
-3. Create a new Web Service:
-   - Connect your GitHub repository
-   - Use the following settings:
-     - Name: `food-analyzer-api`
-     - Environment: `Node`
-     - Build Command: `cd api-server && npm install`
-     - Start Command: `cd api-server && npm start`
-     - Environment Variables: Add your `OPENAI_API_KEY` and other variables from `.env.example`
+1. Push this repository to GitHub
+2. Create a new Web Service on Render.com
+3. Connect your GitHub repository
+4. Configure the build settings:
+   - Build Command: `cd api-server && npm install`
+   - Start Command: `cd api-server && npm start`
+5. Add the necessary environment variables:
+   - `OPENAI_API_KEY`: Your OpenAI API key
+   - `ALLOWED_ORIGINS`: Comma-separated list of allowed origins
+   - `RATE_LIMIT`: Request limits per minute (default: 30)
+   - `DEBUG_MODE`: Enable debug logging (true/false)
 
-4. The server will be deployed at a URL like: `https://food-analyzer-api.onrender.com`
+## API Usage
 
-5. Update the `baseUrl` in `lib/services/food_analyzer_api.dart` with your Render.com deployment URL
+### Analyze Food Image
 
-## Features
+**Endpoint:** `POST /api/analyze-food`
 
-- Food image analysis using OpenAI Vision API
-- Secure API server to protect API keys
-- Responsive UI for mobile and web
+**Request Body:**
+```json
+{
+  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAA..."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "meal": [
+      {
+        "dish": "Chicken Salad",
+        "calories": 350,
+        "macronutrients": {
+          "protein": 25,
+          "carbohydrates": 15,
+          "fat": 20
+        },
+        "ingredients": ["chicken", "lettuce", "tomato", "avocado"]
+      }
+    ]
+  }
+}
+```
+
+## Security Considerations
+
+- The OpenAI API key is stored securely on the server and never exposed to clients
+- CORS protection ensures only authorized origins can access the API
+- Rate limiting prevents abuse of the API
 
 ## License
 
