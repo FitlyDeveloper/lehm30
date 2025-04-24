@@ -992,7 +992,7 @@ class _CodiaPageState extends State<CodiaPage> {
                           ),
                           SizedBox(width: 24.2),
                           Image.asset(
-                            'assets/images/wheat.png',
+                            'assets/images/carbicon.png',
                             width: 14,
                             height: 14,
                           ),
