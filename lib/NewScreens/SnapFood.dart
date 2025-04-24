@@ -143,24 +143,13 @@ class _SnapFoodState extends State<SnapFood> {
 
   // Modify the _analyzeImage method to use our secure API
   Future<void> _analyzeImage(XFile? image) async {
-    // Don't allow multiple concurrent analyses
-    if (_isAnalyzing) {
-      return;
-    }
+    if (_isAnalyzing || image == null) return;
 
     setState(() {
       _isAnalyzing = true;
-      _analysisResult = null;
     });
 
     try {
-      if (image == null) {
-        setState(() {
-          _isAnalyzing = false;
-        });
-        return;
-      }
-
       print("Processing image ${image.path}");
       Uint8List imageBytes;
 
@@ -168,51 +157,50 @@ class _SnapFoodState extends State<SnapFood> {
       if (kIsWeb && _webImageBytes != null) {
         // For web, use the bytes we already have
         imageBytes = _webImageBytes!;
-        print(
-            "Using web image bytes (${(imageBytes.length / 1024).toStringAsFixed(1)}KB)");
+        print("Using web image bytes (${imageBytes.length} bytes)");
       } else {
         // Read as bytes from the file
         imageBytes = await image.readAsBytes();
-        print(
-            "Read image bytes (${(imageBytes.length / 1024).toStringAsFixed(1)}KB)");
+        print("Read image bytes (${imageBytes.length} bytes)");
       }
 
-      // Always compress the image to save on API costs and improve performance
-      // regardless of original size, targeting 200KB
-      print("Compressing image to reduce API costs...");
-      Uint8List processedBytes;
-
-      try {
-        if (kIsWeb) {
-          // Resize image using web-specific implementation with progressively more aggressive settings
-          processedBytes = await resizeWebImage(imageBytes, 800, quality: 0.85);
-
-          // If still larger than target, compress further with smaller size and lower quality
-          if (processedBytes.length > 250 * 1024) {
-            processedBytes =
-                await resizeWebImage(processedBytes, 700, quality: 0.75);
-          }
-
-          // Final attempt with more aggressive settings if needed
-          if (processedBytes.length > 200 * 1024) {
-            processedBytes =
-                await resizeWebImage(processedBytes, 600, quality: 0.65);
-          }
-        } else {
-          // Use the existing _compressImage method which targets 200KB
-          processedBytes = await _compressImage(imageBytes);
-        }
+      // Process image if needed (e.g., compress large images)
+      Uint8List processedBytes = imageBytes;
+      if (imageBytes.length > 500 * 1024) {
+        // More than 500KB, try to compress
         print(
-            "Compressed to ${(processedBytes.length / 1024).toStringAsFixed(1)}KB");
-      } catch (e) {
-        print("Error compressing image: $e");
-        // Fall back to original bytes if compression fails
-        processedBytes = imageBytes;
+            "Image is large (${(imageBytes.length / 1024).toStringAsFixed(1)}KB), compressing...");
+        try {
+          if (kIsWeb) {
+            // Resize image using web-specific implementation
+            processedBytes = await resizeWebImage(imageBytes, 800);
+          } else {
+            // For mobile, we'll use a simpler approach to avoid path_provider
+            // Use FlutterImageCompress.compressWithList for direct byte processing
+            final compressedBytes =
+                await flutter_compress.FlutterImageCompress.compressWithList(
+              imageBytes,
+              minWidth: 800,
+              minHeight: 800,
+              quality: 85,
+            );
+
+            if (compressedBytes.isNotEmpty) {
+              processedBytes = Uint8List.fromList(compressedBytes);
+            }
+          }
+          print(
+              "Compressed to ${(processedBytes.length / 1024).toStringAsFixed(1)}KB");
+        } catch (e) {
+          print("Error compressing image: $e");
+          // Fall back to original bytes if compression fails
+          processedBytes = imageBytes;
+        }
       }
 
       print("Calling secure API service");
 
-      // Use our secure API service
+      // Use our secure API service via Firebase
       final response = await FoodAnalyzerApi.analyzeFoodImage(processedBytes);
 
       print("API call successful!");
@@ -717,6 +705,10 @@ class _SnapFoodState extends State<SnapFood> {
         _analysisResult = analysisData;
         _formattedAnalysisResult = null;
       });
+
+      // Save the food card to SharedPreferences for the Recent Activity section
+      _saveFoodCardData(foodName, ingredients, calories, protein, fat, carbs,
+          ingredientsList);
     } catch (e) {
       print("Error formatting analysis results: $e");
 
@@ -724,6 +716,92 @@ class _SnapFoodState extends State<SnapFood> {
         _analysisResult = analysisData;
         _formattedAnalysisResult = null;
       });
+    }
+  }
+
+  // Helper method to extract numeric value from a string
+  int _extractNumericValue(String input) {
+    // Try to extract digits from the string
+    final match = RegExp(r'(\d+)').firstMatch(input);
+    if (match != null && match.group(1) != null) {
+      return int.tryParse(match.group(1)!) ?? 0;
+    }
+    return 0;
+  }
+
+  // Save food card data to SharedPreferences
+  Future<void> _saveFoodCardData(
+      String foodName,
+      String ingredients,
+      String calories,
+      String protein,
+      String fat,
+      String carbs,
+      List<Map<String, dynamic>> ingredientsList) async {
+    try {
+      // Get the current image bytes
+      Uint8List? imageBytes;
+      if (_webImageBytes != null) {
+        imageBytes = _webImageBytes;
+      } else if (_webImagePath != null && kIsWeb) {
+        try {
+          imageBytes = await getWebImageBytes(_webImagePath!);
+        } catch (e) {
+          print("Error getting web image bytes: $e");
+        }
+      } else if (_imageFile != null && !kIsWeb) {
+        try {
+          imageBytes = await _imageFile!.readAsBytes();
+        } catch (e) {
+          print("Error reading image file bytes: $e");
+        }
+      }
+
+      // Convert image to base64 for storage
+      String? base64Image;
+      if (imageBytes != null) {
+        try {
+          // Compress image for storage
+          Uint8List compressedImage = await compressImage(
+            imageBytes,
+            quality: 70,
+            targetWidth: 300,
+          );
+          base64Image = base64Encode(compressedImage);
+        } catch (e) {
+          print("Error encoding image: $e");
+        }
+      }
+
+      // Create food card data
+      final Map<String, dynamic> foodCard = {
+        'name': foodName.isNotEmpty ? foodName : 'Analyzed Meal',
+        'calories': _extractNumericValue(calories),
+        'protein': _extractNumericValue(protein),
+        'fat': _extractNumericValue(fat),
+        'carbs': _extractNumericValue(carbs),
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'image': base64Image,
+        'ingredients': ingredientsList.map((ing) => ing['name']).toList(),
+      };
+
+      // Load existing food cards
+      final prefs = await SharedPreferences.getInstance();
+      final List<String> storedCards = prefs.getStringList('food_cards') ?? [];
+
+      // Add new food card as JSON
+      storedCards.insert(0, jsonEncode(foodCard));
+
+      // Limit to last 10 cards to prevent excessive storage
+      if (storedCards.length > 10) {
+        storedCards.removeRange(10, storedCards.length);
+      }
+
+      // Save updated list
+      await prefs.setStringList('food_cards', storedCards);
+      print("Food card saved successfully");
+    } catch (e) {
+      print("Error saving food card: $e");
     }
   }
 

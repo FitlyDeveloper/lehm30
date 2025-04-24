@@ -990,6 +990,22 @@ class _CodiaPageState extends State<CodiaPage> {
                               decoration: TextDecoration.none,
                             ),
                           ),
+                          SizedBox(width: 24.2),
+                          Image.asset(
+                            'assets/images/wheat.png',
+                            width: 14,
+                            height: 14,
+                          ),
+                          SizedBox(width: 7.7),
+                          Text(
+                            '${carbs}g',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
                         ],
                       ),
                     ],
