@@ -9,6 +9,8 @@ import 'flip_card.dart';
 import 'home_card2.dart';
 import '../../NewScreens/FoodCardOpen.dart';
 import 'package:flutter/gestures.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 
 class CodiaPage extends StatefulWidget {
   CodiaPage({super.key});
@@ -36,6 +38,10 @@ class _CodiaPageState extends State<CodiaPage> {
   double dailyCalorieAdjustment = 0.0; // Add this line to track the adjustment
   String userGymGoal =
       "null"; // FIXED: Default to "null" for balanced macros, not "Build Muscle"
+
+  // List to store food cards loaded from SharedPreferences
+  List<Map<String, dynamic>> _foodCards = [];
+  bool _isLoadingFoodCards = true;
 
   // Simple diagnostic method to show just the key user data without all the noise
   Future<void> _showBasicUserData() async {
@@ -93,6 +99,7 @@ class _CodiaPageState extends State<CodiaPage> {
     // resetOnboardingData();  // COMMENTING THIS OUT - IT WAS ERASING ALL REAL DATA!
 
     _loadUserData(); // Load the user's actual data from storage
+    _loadFoodCards(); // Load food cards from SharedPreferences
   }
 
   // Load user data from SharedPreferences
@@ -733,6 +740,295 @@ class _CodiaPageState extends State<CodiaPage> {
     return tdee.round();
   }
 
+  // Load food cards from SharedPreferences
+  Future<void> _loadFoodCards() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final List<String>? storedCards = prefs.getStringList('food_cards');
+
+      List<Map<String, dynamic>> cards = [];
+
+      if (storedCards != null && storedCards.isNotEmpty) {
+        final currentTime = DateTime.now().millisecondsSinceEpoch;
+        final twelveHoursInMillis =
+            12 * 60 * 60 * 1000; // 12 hours in milliseconds
+
+        for (String cardJson in storedCards) {
+          try {
+            Map<String, dynamic> cardData = jsonDecode(cardJson);
+
+            // Check if the card is less than 12 hours old
+            int timestamp = cardData['timestamp'] ?? 0;
+            if (currentTime - timestamp < twelveHoursInMillis) {
+              cards.add(cardData);
+            }
+          } catch (e) {
+            print("Error parsing food card JSON: $e");
+          }
+        }
+
+        // Save filtered cards back if any were removed due to expiration
+        if (cards.length < storedCards.length) {
+          final List<String> updatedCards =
+              cards.map((card) => jsonEncode(card)).toList();
+          await prefs.setStringList('food_cards', updatedCards);
+        }
+      }
+
+      // Sort by timestamp (most recent first)
+      cards.sort(
+          (a, b) => (b['timestamp'] as int).compareTo(a['timestamp'] as int));
+
+      setState(() {
+        _foodCards = cards;
+        _isLoadingFoodCards = false;
+      });
+
+      print("Loaded ${cards.length} food cards");
+    } catch (e) {
+      print("Error loading food cards: $e");
+      setState(() {
+        _isLoadingFoodCards = false;
+      });
+    }
+  }
+
+  // Build default image container for food cards without images
+  Widget _buildDefaultImageContainer() {
+    return Container(
+      width: 92,
+      height: 92,
+      color: Color(0xFFDADADA),
+      child: Center(
+        child: Image.asset(
+          'assets/images/meal1.png',
+          width: 28,
+          height: 28,
+        ),
+      ),
+    );
+  }
+
+  // Build a food card widget from food card data
+  Widget _buildFoodCard(Map<String, dynamic> foodCard) {
+    // Convert timestamp to time string (e.g., "12:07")
+    String timeString = "Now";
+    try {
+      if (foodCard.containsKey('timestamp')) {
+        DateTime timestamp =
+            DateTime.fromMillisecondsSinceEpoch(foodCard['timestamp']);
+        timeString =
+            "${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}";
+      }
+    } catch (e) {
+      print("Error formatting time: $e");
+    }
+
+    // Get values with fallbacks
+    String name = foodCard['name'] ?? 'Unknown Meal';
+    int calories = foodCard['calories'] ?? 0;
+    int protein = foodCard['protein'] ?? 0;
+    int fat = foodCard['fat'] ?? 0;
+    int carbs = foodCard['carbs'] ?? 0;
+    String? base64Image = foodCard['image'];
+    List<dynamic> ingredients = foodCard['ingredients'] ?? [];
+
+    // Decode image if available
+    Widget imageWidget;
+    if (base64Image != null && base64Image.isNotEmpty) {
+      try {
+        Uint8List bytes = base64Decode(base64Image);
+        imageWidget = ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.memory(
+            bytes,
+            width: 92,
+            height: 92,
+            fit: BoxFit.cover,
+          ),
+        );
+      } catch (e) {
+        print("Error decoding image: $e");
+        imageWidget = _buildDefaultImageContainer();
+      }
+    } else {
+      imageWidget = _buildDefaultImageContainer();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 29, vertical: 8),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const FoodCardOpen(),
+            ),
+          );
+        },
+        child: Container(
+          padding: EdgeInsets.only(right: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // Food image or placeholder
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: imageWidget,
+              ),
+
+              SizedBox(width: 12),
+
+              // Food details
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: 6.6, vertical: 2.2),
+                            decoration: BoxDecoration(
+                              color: Color(0xFFF2F2F2),
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: Text(
+                              timeString,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.normal,
+                                color: Colors.black,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: 7),
+
+                      // Calories
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/images/energy.png',
+                            width: 18.83,
+                            height: 18.83,
+                          ),
+                          SizedBox(width: 7.7),
+                          Text(
+                            '$calories calories',
+                            style: TextStyle(
+                              fontSize: 15.4,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      SizedBox(height: 7),
+
+                      // Macros
+                      Row(
+                        children: [
+                          Image.asset(
+                            'assets/images/steak.png',
+                            width: 14,
+                            height: 14,
+                          ),
+                          SizedBox(width: 7.7),
+                          Text(
+                            '${protein}g',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                          SizedBox(width: 24.2),
+                          Image.asset(
+                            'assets/images/avocado.png',
+                            width: 14,
+                            height: 14,
+                          ),
+                          SizedBox(width: 7.7),
+                          Text(
+                            '${fat}g',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black,
+                              decoration: TextDecoration.none,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Build a list of widgets for the Recent Activity section
+  List<Widget> _buildDynamicFoodCards() {
+    final List<Widget> widgets = [];
+
+    // Show loading indicator if still loading
+    if (_isLoadingFoodCards) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          child: Center(
+            child: CircularProgressIndicator(),
+          ),
+        ),
+      );
+    }
+    // Display food cards loaded from SharedPreferences
+    else if (!_foodCards.isEmpty) {
+      for (var foodCard in _foodCards) {
+        widgets.add(_buildFoodCard(foodCard));
+      }
+    }
+    // Nothing to show if the list is empty - no message
+
+    return widgets;
+  }
+
   @override
   Widget build(BuildContext context) {
     final statusBarHeight = MediaQuery.of(context).padding.top;
@@ -950,7 +1246,9 @@ class _CodiaPageState extends State<CodiaPage> {
                               MaterialPageRoute(
                                 builder: (context) => const SnapFood(),
                               ),
-                            );
+                            ).then((_) {
+                              _loadFoodCards();
+                            });
                           },
                           child: Container(
                             padding: EdgeInsets.symmetric(vertical: 12),
@@ -1057,348 +1355,8 @@ class _CodiaPageState extends State<CodiaPage> {
                   ),
                 ),
 
-                // Carrot with Meat item
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 29, vertical: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const FoodCardOpen(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          // Food image placeholder
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width:
-                                  92, // Changed from 104 to 92 to make a perfect square
-                              height: 92,
-                              color: Color(0xFFDADADA),
-                              child: Center(
-                                child: Image.asset(
-                                  'assets/images/meal1.png',
-                                  width: 28,
-                                  height: 28,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(width: 12),
-
-                          // Food details
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                  vertical:
-                                      8), // Reduced from 12 to make card smaller
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Carrot with Meat...',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 6.6, vertical: 2.2),
-                                        decoration: BoxDecoration(
-                                          color: Color(0xFFF2F2F2),
-                                          borderRadius:
-                                              BorderRadius.circular(11),
-                                        ),
-                                        child: Text(
-                                          '12:07',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.normal,
-                                            color: Colors.black,
-                                            decoration: TextDecoration.none,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  SizedBox(
-                                      height: 7), // Increased by 15% from 6
-
-                                  // Calories
-                                  Row(
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/energy.png',
-                                        width: 18.83,
-                                        height: 18.83,
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text(
-                                        '500 calories',
-                                        style: TextStyle(
-                                          fontSize: 15.4,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  SizedBox(
-                                      height: 7), // Increased by 15% from 6
-
-                                  // Macros
-                                  Row(
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/steak.png',
-                                        width: 14, // Increased by 6% from 13.2
-                                        height: 14, // Increased by 6% from 13.2
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text('15g',
-                                          style: TextStyle(
-                                              fontSize:
-                                                  14, // Increased by 6% from 13.2
-                                              fontWeight: FontWeight.normal,
-                                              color: Colors.black,
-                                              decoration: TextDecoration.none)),
-                                      SizedBox(width: 24.2),
-                                      Image.asset(
-                                        'assets/images/avocado.png',
-                                        width: 14, // Increased by 6% from 13.2
-                                        height: 14, // Increased by 6% from 13.2
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text('10g',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.normal,
-                                              color: Colors.black,
-                                              decoration: TextDecoration.none)),
-                                      SizedBox(width: 24.2),
-                                      Image.asset(
-                                        'assets/images/carbicon.png',
-                                        width: 14, // Increased by 6% from 13.2
-                                        height: 14, // Increased by 6% from 13.2
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text('101g',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.normal,
-                                              color: Colors.black,
-                                              decoration: TextDecoration.none)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Cake with Berries item
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 29, vertical: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const FoodCardOpen(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: EdgeInsets.only(right: 12),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                            offset: Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          // Food image placeholder
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              width:
-                                  92, // Changed from 104 to 92 to make a perfect square
-                              height: 92,
-                              color: Color(0xFFDADADA),
-                              child: Center(
-                                child: Image.asset(
-                                  'assets/images/meal1.png',
-                                  width: 28,
-                                  height: 28,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(width: 12),
-
-                          // Food details
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(
-                                  vertical:
-                                      8), // Reduced from 12 to make card smaller
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Cake with Berries',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 6.6, vertical: 2.2),
-                                        decoration: BoxDecoration(
-                                          color: Color(0xFFF2F2F2),
-                                          borderRadius:
-                                              BorderRadius.circular(11),
-                                        ),
-                                        child: Text(
-                                          '09:15',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.normal,
-                                            color: Colors.black,
-                                            decoration: TextDecoration.none,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  SizedBox(
-                                      height: 7), // Increased by 15% from 6
-
-                                  // Calories
-                                  Row(
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/energy.png',
-                                        width: 18.83,
-                                        height: 18.83,
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text(
-                                        '370 calories',
-                                        style: TextStyle(
-                                          fontSize: 15.4,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.black,
-                                          decoration: TextDecoration.none,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                  SizedBox(
-                                      height: 7), // Increased by 15% from 6
-
-                                  // Macros
-                                  Row(
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/steak.png',
-                                        width: 14, // Increased by 6% from 13.2
-                                        height: 14, // Increased by 6% from 13.2
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text('15g',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.normal,
-                                              color: Colors.black,
-                                              decoration: TextDecoration.none)),
-                                      SizedBox(width: 24.2),
-                                      Image.asset(
-                                        'assets/images/avocado.png',
-                                        width: 14, // Increased by 6% from 13.2
-                                        height: 14, // Increased by 6% from 13.2
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text('10g',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.normal,
-                                              color: Colors.black,
-                                              decoration: TextDecoration.none)),
-                                      SizedBox(width: 24.2),
-                                      Image.asset(
-                                        'assets/images/carbicon.png',
-                                        width: 14, // Increased by 6% from 13.2
-                                        height: 14, // Increased by 6% from 13.2
-                                      ),
-                                      SizedBox(width: 7.7),
-                                      Text('101g',
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.normal,
-                                              color: Colors.black,
-                                              decoration: TextDecoration.none)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
+                // Dynamic food cards
+                ..._buildDynamicFoodCards(),
 
                 // Add padding at the bottom to ensure content doesn't get cut off by the nav bar
                 SizedBox(height: 90),

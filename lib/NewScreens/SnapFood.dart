@@ -143,13 +143,24 @@ class _SnapFoodState extends State<SnapFood> {
 
   // Modify the _analyzeImage method to use our secure API
   Future<void> _analyzeImage(XFile? image) async {
-    if (_isAnalyzing || image == null) return;
+    // Don't allow multiple concurrent analyses
+    if (_isAnalyzing) {
+      return;
+    }
 
     setState(() {
       _isAnalyzing = true;
+      _analysisResult = null;
     });
 
     try {
+      if (image == null) {
+        setState(() {
+          _isAnalyzing = false;
+        });
+        return;
+      }
+
       print("Processing image ${image.path}");
       Uint8List imageBytes;
 
@@ -157,50 +168,51 @@ class _SnapFoodState extends State<SnapFood> {
       if (kIsWeb && _webImageBytes != null) {
         // For web, use the bytes we already have
         imageBytes = _webImageBytes!;
-        print("Using web image bytes (${imageBytes.length} bytes)");
+        print(
+            "Using web image bytes (${(imageBytes.length / 1024).toStringAsFixed(1)}KB)");
       } else {
         // Read as bytes from the file
         imageBytes = await image.readAsBytes();
-        print("Read image bytes (${imageBytes.length} bytes)");
+        print(
+            "Read image bytes (${(imageBytes.length / 1024).toStringAsFixed(1)}KB)");
       }
 
-      // Process image if needed (e.g., compress large images)
-      Uint8List processedBytes = imageBytes;
-      if (imageBytes.length > 500 * 1024) {
-        // More than 500KB, try to compress
-        print(
-            "Image is large (${(imageBytes.length / 1024).toStringAsFixed(1)}KB), compressing...");
-        try {
-          if (kIsWeb) {
-            // Resize image using web-specific implementation
-            processedBytes = await resizeWebImage(imageBytes, 800);
-          } else {
-            // For mobile, we'll use a simpler approach to avoid path_provider
-            // Use FlutterImageCompress.compressWithList for direct byte processing
-            final compressedBytes =
-                await flutter_compress.FlutterImageCompress.compressWithList(
-              imageBytes,
-              minWidth: 800,
-              minHeight: 800,
-              quality: 85,
-            );
+      // Always compress the image to save on API costs and improve performance
+      // regardless of original size, targeting 200KB
+      print("Compressing image to reduce API costs...");
+      Uint8List processedBytes;
 
-            if (compressedBytes.isNotEmpty) {
-              processedBytes = Uint8List.fromList(compressedBytes);
-            }
+      try {
+        if (kIsWeb) {
+          // Resize image using web-specific implementation with progressively more aggressive settings
+          processedBytes = await resizeWebImage(imageBytes, 800, quality: 0.85);
+
+          // If still larger than target, compress further with smaller size and lower quality
+          if (processedBytes.length > 250 * 1024) {
+            processedBytes =
+                await resizeWebImage(processedBytes, 700, quality: 0.75);
           }
-          print(
-              "Compressed to ${(processedBytes.length / 1024).toStringAsFixed(1)}KB");
-        } catch (e) {
-          print("Error compressing image: $e");
-          // Fall back to original bytes if compression fails
-          processedBytes = imageBytes;
+
+          // Final attempt with more aggressive settings if needed
+          if (processedBytes.length > 200 * 1024) {
+            processedBytes =
+                await resizeWebImage(processedBytes, 600, quality: 0.65);
+          }
+        } else {
+          // Use the existing _compressImage method which targets 200KB
+          processedBytes = await _compressImage(imageBytes);
         }
+        print(
+            "Compressed to ${(processedBytes.length / 1024).toStringAsFixed(1)}KB");
+      } catch (e) {
+        print("Error compressing image: $e");
+        // Fall back to original bytes if compression fails
+        processedBytes = imageBytes;
       }
 
       print("Calling secure API service");
 
-      // Use our secure API service via Firebase
+      // Use our secure API service
       final response = await FoodAnalyzerApi.analyzeFoodImage(processedBytes);
 
       print("API call successful!");

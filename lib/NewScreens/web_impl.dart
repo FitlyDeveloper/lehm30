@@ -100,7 +100,8 @@ Future<Uint8List> _blobToBytes(html.Blob blob) async {
 }
 
 // Resize an image using HTML canvas
-Future<Uint8List> resizeWebImage(Uint8List sourceBytes, int targetWidth) async {
+Future<Uint8List> resizeWebImage(Uint8List sourceBytes, int targetWidth,
+    {double quality = 0.85}) async {
   if (!kIsWeb) return sourceBytes;
 
   try {
@@ -134,8 +135,8 @@ Future<Uint8List> resizeWebImage(Uint8List sourceBytes, int targetWidth) async {
         // Draw resized image to canvas
         ctx.drawImageScaled(img, 0, 0, targetWidth, targetHeight);
 
-        // Convert to JPEG with 85% quality
-        final dataUrl = canvas.toDataUrl('image/jpeg', 0.85);
+        // Convert to JPEG with the specified quality (default 85%)
+        final dataUrl = canvas.toDataUrl('image/jpeg', quality);
 
         // Extract base64 data
         final base64Data = dataUrl.split(',')[1];

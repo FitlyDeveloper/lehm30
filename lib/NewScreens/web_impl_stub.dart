@@ -8,7 +8,8 @@ Future<String> getWebImageBase64(String imagePath) async {
 }
 
 // Stub implementation that just returns the original bytes
-Future<Uint8List> resizeWebImage(Uint8List sourceBytes, int targetWidth) async {
+Future<Uint8List> resizeWebImage(Uint8List sourceBytes, int targetWidth,
+    {double quality = 0.85}) async {
   return sourceBytes;
 }
 
